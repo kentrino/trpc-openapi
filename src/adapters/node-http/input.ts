@@ -45,10 +45,14 @@ export const getBody = async (req: NodeHTTPRequest, maxBodySize = BODY_100_KB): 
   if (contentType === 'application/json' || contentType === 'application/x-www-form-urlencoded') {
     try {
       const raw = (await getBuffer(req, { limit: maxBodySize })).toString('utf-8');
-      const parsed = new URLSearchParams(raw);
-      req.body = raw ? parsed : undefined;
+      if (contentType === 'application/json') {
+        req.body = JSON.parse(raw);
+      } else if (contentType === 'application/x-www-form-urlencoded') {
+        const parsed = parse(raw);
+        req.body = raw ? parsed : undefined;
+      }
     } catch (cause) {
-      if (cause instanceof Error && cause.name === 'PayloadTooLargeError') {
+      if (cause instanceof Error && cause.message === 'PayloadTooLargeError') {
         throw new TRPCError({
           message: 'Request body too large',
           code: 'PAYLOAD_TOO_LARGE',
@@ -84,7 +88,7 @@ export function getBuffer(
       .on('data', (chunk) => {
         received += chunk.length;
         if (received > limit) {
-          reject(new Error('Body limit exceeded'));
+          reject(new Error('PayloadTooLargeError'));
           return;
         }
         bodyParts.push(chunk);
@@ -97,4 +101,20 @@ export function getBuffer(
         reject(error);
       });
   });
+}
+
+export function parse(str: string) {
+  const u = new URLSearchParams(str);
+  const record: Record<string, string | string[]> = {};
+  u.forEach((value, key) => {
+    const rec = record[key];
+    if (typeof record[key] === 'string') {
+      record[key] = [record[key] as string, value];
+    } else if (typeof record[key] === 'undefined') {
+      record[key] = value;
+    } else if (Array.isArray(rec)) {
+      rec.push(value);
+    }
+  });
+  return record;
 }
