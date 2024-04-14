@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { NodeHTTPRequest } from '@trpc/server/dist/adapters/node-http';
-import parse from 'co-body';
+import type { IncomingMessage } from 'http';
 
 export const getQuery = (req: NodeHTTPRequest, url: URL): Record<string, string> => {
   const query: Record<string, string> = {};
@@ -44,11 +44,8 @@ export const getBody = async (req: NodeHTTPRequest, maxBodySize = BODY_100_KB): 
   const contentType = req.headers['content-type'];
   if (contentType === 'application/json' || contentType === 'application/x-www-form-urlencoded') {
     try {
-      const { raw, parsed } = await parse(req, {
-        limit: maxBodySize,
-        strict: false,
-        returnRawBody: true,
-      });
+      const raw = (await getBuffer(req, { limit: maxBodySize })).toString('utf-8');
+      const parsed = new URLSearchParams(raw);
       req.body = raw ? parsed : undefined;
     } catch (cause) {
       if (cause instanceof Error && cause.name === 'PayloadTooLargeError') {
@@ -74,3 +71,30 @@ export const getBody = async (req: NodeHTTPRequest, maxBodySize = BODY_100_KB): 
 
   return req.body;
 };
+
+export function getBuffer(
+  incomingMessage: IncomingMessage,
+  { limit }: { limit: number } = { limit: 10 * 1000 * 1000 },
+) {
+  return new Promise<Buffer>((resolve, reject) => {
+    const bodyParts: Buffer[] = [];
+    let received = 0;
+    let body;
+    incomingMessage
+      .on('data', (chunk) => {
+        received += chunk.length;
+        if (received > limit) {
+          reject(new Error('Body limit exceeded'));
+          return;
+        }
+        bodyParts.push(chunk);
+      })
+      .on('end', () => {
+        body = Buffer.concat(bodyParts);
+        resolve(body);
+      })
+      .on('error', (error) => {
+        reject(error);
+      });
+  });
+}
