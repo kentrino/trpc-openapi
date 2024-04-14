@@ -6,11 +6,11 @@ import superjson from 'superjson';
 import { z } from 'zod';
 
 import {
-  CreateOpenApiFetchHandlerOptions,
+  CreateOldOpenApiFetchHandlerOptions,
   OpenApiErrorResponse,
   OpenApiMeta,
   OpenApiRouter,
-  createOpenApiFetchHandlerCompat,
+  createOldOpenApiFetchHandler,
 } from '../../src';
 import * as zodUtils from '../../src/utils/zod';
 
@@ -28,9 +28,9 @@ const clearMocks = () => {
 };
 
 const createFetchHandlerCaller = <TRouter extends OpenApiRouter>(
-  handlerOpts: CreateOpenApiFetchHandlerOptions<TRouter>,
+  handlerOpts: CreateOldOpenApiFetchHandlerOptions<TRouter>,
 ) => {
-  const openApiHttpHandler = createOpenApiFetchHandlerCompat<TRouter>({
+  const openApiHttpHandler = createOldOpenApiFetchHandler<TRouter>({
     router: handlerOpts.router,
     createContext: handlerOpts.createContext ?? createContextMock,
     responseMeta: handlerOpts.responseMeta ?? responseMetaMock,

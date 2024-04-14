@@ -8,7 +8,7 @@ import {
   createOpenApiNodeHttpHandler,
 } from './node-http/core';
 
-export type CreateOpenApiFetchHandlerOptions<TRouter extends OpenApiRouter> = Omit<
+export type CreateOldOpenApiFetchHandlerOptions<TRouter extends OpenApiRouter> = Omit<
   FetchHandlerOptions<TRouter>,
   'batching'
 > & {
@@ -92,8 +92,8 @@ const createRequestProxy = async (req: Request, url?: string) => {
   });
 };
 
-export const createOpenApiFetchHandler = async <TRouter extends OpenApiRouter>(
-  opts: CreateOpenApiFetchHandlerOptions<TRouter>,
+export const createOldOpenApiFetchHandler = async <TRouter extends OpenApiRouter>(
+  opts: CreateOldOpenApiFetchHandlerOptions<TRouter>,
 ): Promise<Response> => {
   const resHeaders = new Headers();
   const url = new URL(opts.req.url.replace(opts.endpoint, ''));
