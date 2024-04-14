@@ -24,9 +24,9 @@ export type ResponseBuilderOptions<TRouter extends OpenApiRouter> = Pick<
 
 export class ResponseBuilder<TRouter extends OpenApiRouter> {
   headers = new Headers();
-  errorStatus: {
-    input: any;
-    output: any;
+  errorInfo: {
+    input: unknown;
+    output: unknown;
     ctx: inferRouterContext<TRouter> | undefined;
     procedure?: {
       path: string;
@@ -59,7 +59,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
       const ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: this.headers });
       const fn = this.procedureFnFor(procedure.path, ctx);
       const output = await fn(input as never);
-      this.errorStatus = {
+      this.errorInfo = {
         input,
         output,
         ctx,
@@ -89,7 +89,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
   handleError(cause: unknown): Response {
     const error = getErrorFromUnknown(cause);
     const { router, responseMeta, onError } = this.opts;
-    const { procedure, input, output, ctx } = this.errorStatus;
+    const { procedure, input, output, ctx } = this.errorInfo;
     onError?.({
       error,
       type: procedure?.type ?? 'unknown',
@@ -103,7 +103,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
       type: procedure?.type ?? 'unknown',
       paths: procedure?.path ? [procedure?.path] : undefined,
       ctx: ctx,
-      data: [output],
+      data: [output as never],
       errors: [error],
     });
     const errorShape = router.getErrorShape({
