@@ -1,8 +1,8 @@
 {
-  "name": "trpc-openapi",
-  "version": "1.2.0",
+  "name": "@kentrino/trpc-openapi",
+  "version": "1.3.0",
   "description": "tRPC OpenAPI",
-  "author": "James Berry <jb@jamesbe.com>",
+  "author": "Kento Haneda <kento@hane.dad>",
   "private": false,
   "license": "MIT",
   "keywords": [
@@ -10,9 +10,9 @@
     "openapi",
     "swagger"
   ],
-  "homepage": "https://github.com/jlalmes/trpc-openapi",
-  "repository": "github:jlalmes/trpc-openapi",
-  "bugs": "https://github.com/jlalmes/trpc-openapi/issues",
+  "homepage": "https://github.com/kentrino/trpc-openapi",
+  "repository": "github:kentrino/trpc-openapi",
+  "bugs": "https://github.com/kentrino/trpc-openapi/issues",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "workspaces": [
@@ -34,8 +34,6 @@
     "zod": "^3.14.4"
   },
   "dependencies": {
-    "co-body": "^6.1.0",
-    "h3": "^1.6.4",
     "lodash.clonedeep": "^4.5.0",
     "node-mocks-http": "^1.12.2",
     "openapi-types": "^12.1.1",

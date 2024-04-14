@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { NodeHTTPRequest } from '@trpc/server/dist/adapters/node-http';
-import parse from 'co-body';
+import type { IncomingMessage } from 'http';
 
 export const getQuery = (req: NodeHTTPRequest, url: URL): Record<string, string> => {
   const query: Record<string, string> = {};
@@ -44,14 +44,15 @@ export const getBody = async (req: NodeHTTPRequest, maxBodySize = BODY_100_KB): 
   const contentType = req.headers['content-type'];
   if (contentType === 'application/json' || contentType === 'application/x-www-form-urlencoded') {
     try {
-      const { raw, parsed } = await parse(req, {
-        limit: maxBodySize,
-        strict: false,
-        returnRawBody: true,
-      });
-      req.body = raw ? parsed : undefined;
+      const raw = (await getBuffer(req, { limit: maxBodySize })).toString('utf-8');
+      if (contentType === 'application/json') {
+        req.body = JSON.parse(raw);
+      } else if (contentType === 'application/x-www-form-urlencoded') {
+        const parsed = parse(raw);
+        req.body = raw ? parsed : undefined;
+      }
     } catch (cause) {
-      if (cause instanceof Error && cause.name === 'PayloadTooLargeError') {
+      if (cause instanceof Error && cause.message === 'PayloadTooLargeError') {
         throw new TRPCError({
           message: 'Request body too large',
           code: 'PAYLOAD_TOO_LARGE',
@@ -74,3 +75,46 @@ export const getBody = async (req: NodeHTTPRequest, maxBodySize = BODY_100_KB): 
 
   return req.body;
 };
+
+export function getBuffer(
+  incomingMessage: IncomingMessage,
+  { limit }: { limit: number } = { limit: 10 * 1000 * 1000 },
+) {
+  return new Promise<Buffer>((resolve, reject) => {
+    const bodyParts: Buffer[] = [];
+    let received = 0;
+    let body;
+    incomingMessage
+      .on('data', (chunk) => {
+        received += chunk.length;
+        if (received > limit) {
+          reject(new Error('PayloadTooLargeError'));
+          return;
+        }
+        bodyParts.push(chunk);
+      })
+      .on('end', () => {
+        body = Buffer.concat(bodyParts);
+        resolve(body);
+      })
+      .on('error', (error) => {
+        reject(error);
+      });
+  });
+}
+
+export function parse(str: string) {
+  const u = new URLSearchParams(str);
+  const record: Record<string, string | string[]> = {};
+  u.forEach((value, key) => {
+    const rec = record[key];
+    if (typeof record[key] === 'string') {
+      record[key] = [record[key] as string, value];
+    } else if (typeof record[key] === 'undefined') {
+      record[key] = value;
+    } else if (Array.isArray(rec)) {
+      rec.push(value);
+    }
+  });
+  return record;
+}

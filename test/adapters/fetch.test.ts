@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
-import { TRPCError, initTRPC } from '@trpc/server';
+import { initTRPC, TRPCError } from '@trpc/server';
 import fetch from 'node-fetch';
 import superjson from 'superjson';
 import { z } from 'zod';
 
 import {
+  createOpenApiFetchHandler,
   CreateOpenApiFetchHandlerOptions,
   OpenApiErrorResponse,
   OpenApiMeta,
   OpenApiRouter,
-  createOpenApiFetchHandler,
 } from '../../src';
 import * as zodUtils from '../../src/utils/zod';
 
@@ -27,10 +26,17 @@ const clearMocks = () => {
   onErrorMock.mockClear();
 };
 
+function createOpenApiFetchHandlerCompat<TRouter extends OpenApiRouter>(
+  opts: CreateOpenApiFetchHandlerOptions<TRouter>,
+): Promise<Response> {
+  const handler = createOpenApiFetchHandler(opts);
+  return handler(opts.req);
+}
+
 const createFetchHandlerCaller = <TRouter extends OpenApiRouter>(
   handlerOpts: CreateOpenApiFetchHandlerOptions<TRouter>,
 ) => {
-  const openApiHttpHandler = createOpenApiFetchHandler<TRouter>({
+  const openApiHttpHandler = createOpenApiFetchHandlerCompat<TRouter>({
     router: handlerOpts.router,
     createContext: handlerOpts.createContext ?? createContextMock,
     responseMeta: handlerOpts.responseMeta ?? responseMetaMock,
@@ -1274,7 +1280,34 @@ describe('fetch adapter', () => {
     }
   });
 
-  test('with x-www-form-urlencoded', async () => {
+  test('with x-ww-form-urlencoded', async () => {
+    const appRouter = t.router({
+      multiInput: t.procedure
+        .meta({ openapi: { method: 'POST', path: '/form-urlencoded' } })
+        .input(z.object({ name: z.string() }))
+        .output(z.object({ greetings: z.string() }))
+        .query(({ input }) => ({ greetings: `hello ${input.name}` })),
+    });
+
+    const req = new Request('https://localhost:3000/form-urlencoded', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'name=James',
+    });
+    const res = await createFetchHandlerCaller({
+      router: appRouter,
+      endpoint: '/',
+      req,
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ greetings: 'hello James' });
+    expect(createContextMock).toHaveBeenCalledTimes(1);
+    expect(responseMetaMock).toHaveBeenCalledTimes(1);
+    expect(onErrorMock).toHaveBeenCalledTimes(0);
+  });
+
+  test('with x-www-form-urlencoded with array param', async () => {
     const appRouter = t.router({
       echo: t.procedure
         .meta({
