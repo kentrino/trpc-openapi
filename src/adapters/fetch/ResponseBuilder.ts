@@ -20,41 +20,40 @@ import { ProcedureCache, createProcedureCache } from '../node-http/procedures';
 export type ResponseBuilderOptions<TRouter extends OpenApiRouter> = Pick<
   FetchHandlerRequestOptions<TRouter>,
   'router' | 'createContext' | 'responseMeta' | 'onError'
-> & { req: Request, procedureCache: ProcedureCache };
+> & { req: Request; procedureCache: ProcedureCache };
 
 export class ResponseBuilder<TRouter extends OpenApiRouter> {
   headers = new Headers();
-  ctx: inferRouterContext<TRouter> | undefined;
-
-  constructor(private opts: ResponseBuilderOptions<TRouter>) {
-  }
+  constructor(private opts: ResponseBuilderOptions<TRouter>) {}
 
   async build(): Promise<Response> {
-    const { router, responseMeta, onError } = this.opts;
-    const { procedure, pathInput } = this.opts.procedureCache(this.method, this.path) ?? {};
-    if (!procedure || !pathInput) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'Not found',
-      });
-    }
-    if (this.method === 'HEAD') {
-      return new Response(undefined, {
-        status: 204,
-        headers: undefined,
-      });
-    }
+    // FIXME:
     let input: any = undefined;
     let data: any = undefined;
+    let ctx: inferRouterContext<TRouter> | undefined;
+    const { router, responseMeta, onError } = this.opts;
+    const { procedure, pathInput } = this.opts.procedureCache(this.method, this.path) ?? {};
     try {
-      const fn = await this.procedureFnFor(procedure.path);
+      if (this.method === 'HEAD') {
+        return new Response(undefined, {
+          status: 204,
+          headers: undefined,
+        });
+      }
+      if (!procedure || !pathInput) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Not found',
+        });
+      }
       input = await this.input(procedure.procedure, pathInput);
-      // TODO: input can be undefined?
+      ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: this.headers });
+      const fn = this.procedureFnFor(procedure.path, ctx);
       data = await fn(input);
       const meta = this.opts.responseMeta?.({
         type: procedure.type,
         paths: [procedure.path],
-        ctx: this.ctx,
+        ctx: ctx,
         data: [data as never],
         errors: [],
       });
@@ -72,14 +71,14 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
         type: procedure?.type ?? 'unknown',
         path: procedure?.path,
         input,
-        ctx: this.ctx,
+        ctx: ctx,
         req: this.opts.req,
       });
 
       const meta = responseMeta?.({
         type: procedure?.type ?? 'unknown',
         paths: procedure?.path ? [procedure?.path] : undefined,
-        ctx: this.ctx,
+        ctx: ctx,
         data: [data],
         errors: [error],
       });
@@ -88,7 +87,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
         type: procedure?.type ?? 'unknown',
         path: procedure?.path,
         input,
-        ctx: this.ctx,
+        ctx: ctx,
       });
 
       const isInputValidationError =
@@ -112,12 +111,9 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     }
   }
 
-  async procedureFnFor(path: string): Promise<AnyProcedure> {
-    const createContext = this.opts.createContext;
-    const { req, router } = this.opts;
-    // FIXME:
-    this.ctx = await createContext?.({ req, resHeaders: this.headers });
-    const caller = router.createCaller(this.ctx);
+  procedureFnFor(path: string, ctx: inferRouterContext<TRouter>): AnyProcedure {
+    const { router } = this.opts;
+    const caller = router.createCaller(ctx);
     const segments = path.split('.');
     const procedureFn = segments.reduce((acc, curr) => acc[curr], caller as any) as AnyProcedure;
     return procedureFn;
@@ -129,15 +125,12 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
   ): Promise<Record<string, any> | undefined> {
     const schema = this.schema(procedure);
     const acceptBody = acceptsRequestBody(this.method);
-    if (!acceptBody) {
-      return { ...pathInput };
-    }
     if (instanceofZodTypeLikeVoid(schema)) {
       return undefined;
     }
     return {
+      ...(acceptBody ? await this.requestBody() : this.query),
       ...pathInput,
-      ...(await this.requestBody()),
     };
   }
 
@@ -163,14 +156,34 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     return method as never;
   }
 
-  get path(): string {
+  private _url: URL | undefined;
+  get url(): URL {
+    if (this._url) {
+      return this._url;
+    }
     const { url: reqUrl } = this.opts.req;
     const url = new URL(reqUrl.startsWith('/') ? `http://127.0.0.1${reqUrl}` : reqUrl);
-    return normalizePath(url.pathname);
+    this._url = url;
+    return url;
+  }
+
+  get path(): string {
+    return normalizePath(this.url.pathname);
+  }
+
+  get query(): Record<string, string> {
+    const res: Record<string, string> = {};
+    this.url.searchParams.forEach((value, key) => {
+      if (typeof res[key] === 'undefined') {
+        res[key] = value;
+      }
+    });
+    return res;
   }
 
   async text(): Promise<string> {
-    return await this.opts.req.text();
+    const txt = await this.opts.req.text();
+    return txt;
   }
 
   async requestBody(): Promise<Record<string, unknown> | undefined> {

@@ -23,6 +23,7 @@ export function createOpenApiFetchHandler<TRouter extends OpenApiRouter>(
       createContext: opts.createContext,
       procedureCache,
       responseMeta: opts.responseMeta,
+      onError: opts.onError,
     });
     return await builder.build();
   };
