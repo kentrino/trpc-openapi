@@ -1,7 +1,7 @@
 import { AnyProcedure, TRPCError } from '@trpc/server';
 import { FetchHandlerRequestOptions } from '@trpc/server/src/adapters/fetch/fetchRequestHandler';
 import { inferRouterContext } from '@trpc/server/src/core/types';
-import { z, ZodError } from 'zod';
+import { ZodError, z } from 'zod';
 
 import { OpenApiErrorResponse, OpenApiMethod, OpenApiProcedure, OpenApiRouter } from '../../types';
 import { acceptsRequestBody } from '../../utils/method';
@@ -14,7 +14,7 @@ import {
   unwrapZodType,
   zodSupportsCoerce,
 } from '../../utils/zod';
-import { getErrorFromUnknown, TRPC_ERROR_CODE_HTTP_STATUS } from '../node-http/errors';
+import { TRPC_ERROR_CODE_HTTP_STATUS, getErrorFromUnknown } from '../node-http/errors';
 import { ProcedureCache } from '../node-http/procedures';
 
 export type ResponseBuilderOptions<TRouter extends OpenApiRouter> = Pick<
@@ -215,7 +215,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
       } else if (typeof res[key] === 'string') {
         res[key] = [res[key] as string, value];
       } else if (Array.isArray(res[key])) {
-        (res[key] as string[]).push(value)
+        (res[key] as string[]).push(value);
       }
     });
     return res;
