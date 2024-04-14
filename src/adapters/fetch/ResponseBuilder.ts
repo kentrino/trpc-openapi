@@ -24,14 +24,23 @@ export type ResponseBuilderOptions<TRouter extends OpenApiRouter> = Pick<
 
 export class ResponseBuilder<TRouter extends OpenApiRouter> {
   headers = new Headers();
+  errorStatus: {
+    input: any;
+    output: any;
+    ctx: inferRouterContext<TRouter> | undefined;
+    procedure?: {
+      path: string;
+      type: 'query' | 'mutation';
+    };
+  } = {
+    input: undefined,
+    output: undefined,
+    ctx: undefined,
+  };
+
   constructor(private opts: ResponseBuilderOptions<TRouter>) {}
 
   async build(): Promise<Response> {
-    // FIXME:
-    let input: any = undefined;
-    let data: any = undefined;
-    let ctx: inferRouterContext<TRouter> | undefined;
-    const { router, responseMeta, onError } = this.opts;
     const { procedure, pathInput } = this.opts.procedureCache(this.method, this.path) ?? {};
     try {
       if (this.method === 'HEAD') {
@@ -46,69 +55,83 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
           message: 'Not found',
         });
       }
-      input = await this.input(procedure.procedure, pathInput);
-      ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: this.headers });
+      const input = await this.input(procedure.procedure, pathInput);
+      const ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: this.headers });
       const fn = this.procedureFnFor(procedure.path, ctx);
-      data = await fn(input);
+      const output = await fn(input as never);
+      this.errorStatus = {
+        input,
+        output,
+        ctx,
+        procedure: {
+          path: procedure.path,
+          type: procedure.type,
+        },
+      };
       const meta = this.opts.responseMeta?.({
         type: procedure.type,
         paths: [procedure.path],
         ctx: ctx,
-        data: [data as never],
+        data: [output as never],
         errors: [],
       });
-      const res = new Response(JSON.stringify(data), {
+      const res = new Response(JSON.stringify(output), {
         status: meta?.status ?? 200,
         headers: meta?.headers ?? this.headers,
       });
       res.headers.set('Content-Type', 'application/json');
       return res;
     } catch (cause) {
-      const error = getErrorFromUnknown(cause);
-
-      onError?.({
-        error,
-        type: procedure?.type ?? 'unknown',
-        path: procedure?.path,
-        input,
-        ctx: ctx,
-        req: this.opts.req,
-      });
-
-      const meta = responseMeta?.({
-        type: procedure?.type ?? 'unknown',
-        paths: procedure?.path ? [procedure?.path] : undefined,
-        ctx: ctx,
-        data: [data],
-        errors: [error],
-      });
-      const errorShape = router.getErrorShape({
-        error,
-        type: procedure?.type ?? 'unknown',
-        path: procedure?.path,
-        input,
-        ctx: ctx,
-      });
-
-      const isInputValidationError =
-        error.code === 'BAD_REQUEST' &&
-        error.cause instanceof Error &&
-        error.cause.name === 'ZodError';
-
-      const statusCode = meta?.status ?? TRPC_ERROR_CODE_HTTP_STATUS[error.code] ?? 500;
-      const headers = meta?.headers ?? {};
-      const body: OpenApiErrorResponse = {
-        message: isInputValidationError
-          ? 'Input validation failed'
-          : errorShape?.message ?? error.message ?? 'An error occurred',
-        code: error.code,
-        issues: isInputValidationError ? (error.cause as ZodError).errors : undefined,
-      };
-      return new Response(JSON.stringify(body), {
-        status: statusCode,
-        headers: headers,
-      });
+      return this.handleError(cause);
     }
+  }
+
+  handleError(cause: unknown): Response {
+    const error = getErrorFromUnknown(cause);
+    const { router, responseMeta, onError } = this.opts;
+    const { procedure, input, output, ctx } = this.errorStatus;
+    onError?.({
+      error,
+      type: procedure?.type ?? 'unknown',
+      path: procedure?.path,
+      input,
+      ctx: ctx,
+      req: this.opts.req,
+    });
+
+    const meta = responseMeta?.({
+      type: procedure?.type ?? 'unknown',
+      paths: procedure?.path ? [procedure?.path] : undefined,
+      ctx: ctx,
+      data: [output],
+      errors: [error],
+    });
+    const errorShape = router.getErrorShape({
+      error,
+      type: procedure?.type ?? 'unknown',
+      path: procedure?.path,
+      input,
+      ctx: ctx,
+    });
+
+    const isInputValidationError =
+      error.code === 'BAD_REQUEST' &&
+      error.cause instanceof Error &&
+      error.cause.name === 'ZodError';
+
+    const statusCode = meta?.status ?? TRPC_ERROR_CODE_HTTP_STATUS[error.code] ?? 500;
+    const headers = meta?.headers ?? {};
+    const body: OpenApiErrorResponse = {
+      message: isInputValidationError
+        ? 'Input validation failed'
+        : errorShape?.message ?? error.message ?? 'An error occurred',
+      code: error.code,
+      issues: isInputValidationError ? (error.cause as ZodError).errors : undefined,
+    };
+    return new Response(JSON.stringify(body), {
+      status: statusCode,
+      headers: headers,
+    });
   }
 
   procedureFnFor(path: string, ctx: inferRouterContext<TRouter>): AnyProcedure {
