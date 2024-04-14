@@ -1,7 +1,7 @@
 import { AnyProcedure, TRPCError } from '@trpc/server';
 import { FetchHandlerRequestOptions } from '@trpc/server/src/adapters/fetch/fetchRequestHandler';
 import { inferRouterContext } from '@trpc/server/src/core/types';
-import { ZodError, z } from 'zod';
+import { z, ZodError } from 'zod';
 
 import { OpenApiErrorResponse, OpenApiMethod, OpenApiProcedure, OpenApiRouter } from '../../types';
 import { acceptsRequestBody } from '../../utils/method';
@@ -14,8 +14,8 @@ import {
   unwrapZodType,
   zodSupportsCoerce,
 } from '../../utils/zod';
-import { TRPC_ERROR_CODE_HTTP_STATUS, getErrorFromUnknown } from '../node-http/errors';
-import { ProcedureCache, createProcedureCache } from '../node-http/procedures';
+import { getErrorFromUnknown, TRPC_ERROR_CODE_HTTP_STATUS } from '../node-http/errors';
+import { ProcedureCache } from '../node-http/procedures';
 
 export type ResponseBuilderOptions<TRouter extends OpenApiRouter> = Pick<
   FetchHandlerRequestOptions<TRouter>,
@@ -182,8 +182,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
   }
 
   async text(): Promise<string> {
-    const txt = await this.opts.req.text();
-    return txt;
+    return await this.opts.req.text();
   }
 
   async requestBody(): Promise<Record<string, unknown> | undefined> {
@@ -191,7 +190,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     try {
       if (req.headers.get('content-type')?.includes('application/json')) {
         // use JSON.parse instead of req.json() because req.json() does not throw on invalid JSON
-        return JSON.parse(await this.text());
+        return JSON.parse(await this.opts.req.text());
       }
 
       if (req.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) {
@@ -209,10 +208,16 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
 
   async urlEncodedBody(this: { text: () => Promise<string> }) {
     const params = new URLSearchParams(await this.text());
-    const data: Record<string, unknown> = {};
-    for (const key of params.keys()) {
-      data[key] = params.getAll(key);
-    }
-    return data;
+    const res: Record<string, string | string[]> = {};
+    params.forEach((value, key) => {
+      if (typeof res[key] === 'undefined') {
+        res[key] = value;
+      } else if (typeof res[key] === 'string') {
+        res[key] = [res[key] as string, value];
+      } else if (Array.isArray(res[key])) {
+        (res[key] as string[]).push(value)
+      }
+    });
+    return res;
   }
 }
