@@ -28,10 +28,3 @@ export function createOpenApiFetchHandler<TRouter extends OpenApiRouter>(
     return await builder.build();
   };
 }
-
-export function createOpenApiFetchHandlerCompat<TRouter extends OpenApiRouter>(
-  opts: CreateOpenApiFetchHandlerOptions<TRouter>,
-): Promise<Response> {
-  const handler = createOpenApiFetchHandler(opts);
-  return handler(opts.req);
-}
