@@ -23,8 +23,7 @@ export type ResponseBuilderOptions<TRouter extends OpenApiRouter> = Pick<
 > & { req: Request; procedureCache: ProcedureCache };
 
 export class ResponseBuilder<TRouter extends OpenApiRouter> {
-  headers = new Headers();
-  errorInfo: {
+  private errorInfo: {
     input: unknown;
     output: unknown;
     ctx: inferRouterContext<TRouter> | undefined;
@@ -42,6 +41,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
 
   async build(): Promise<Response> {
     const { procedure, pathInput } = this.opts.procedureCache(this.method, this.path) ?? {};
+    const headers = new Headers();
     try {
       if (this.method === 'HEAD') {
         return new Response(undefined, {
@@ -56,8 +56,9 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
         });
       }
       const input = await this.input(procedure.procedure, pathInput);
-      const ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: this.headers });
+      const ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: headers });
       const fn = this.procedureFnFor(procedure.path, ctx);
+      // input can be undefined
       const output = await fn(input as never);
       this.errorInfo = {
         input,
@@ -77,7 +78,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
       });
       const res = new Response(JSON.stringify(output), {
         status: meta?.status ?? 200,
-        headers: meta?.headers ?? this.headers,
+        headers: meta?.headers ?? headers,
       });
       res.headers.set('Content-Type', 'application/json');
       return res;
@@ -86,7 +87,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     }
   }
 
-  handleError(cause: unknown): Response {
+  private handleError(cause: unknown): Response {
     const error = getErrorFromUnknown(cause);
     const { router, responseMeta, onError } = this.opts;
     const { procedure, input, output, ctx } = this.errorInfo;
@@ -138,11 +139,10 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     const { router } = this.opts;
     const caller = router.createCaller(ctx);
     const segments = path.split('.');
-    const procedureFn = segments.reduce((acc, curr) => acc[curr], caller as any) as AnyProcedure;
-    return procedureFn;
+    return segments.reduce((acc, curr) => acc[curr], caller as any) as AnyProcedure;
   }
 
-  async input(
+  private async input(
     procedure: OpenApiProcedure,
     pathInput: Record<string, string>,
   ): Promise<Record<string, any> | undefined> {
@@ -157,7 +157,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     };
   }
 
-  schema(procedure: OpenApiProcedure): z.ZodTypeAny {
+  private schema(procedure: OpenApiProcedure): z.ZodTypeAny {
     const schema = getInputOutputParsers(procedure).inputParser as z.ZodTypeAny;
     const unwrappedSchema = unwrapZodType(schema, true);
     // if supported, coerce all string values to correct types
@@ -174,13 +174,13 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     return unwrappedSchema;
   }
 
-  get method(): OpenApiMethod & 'HEAD' {
+  private get method(): OpenApiMethod & 'HEAD' {
     const { method } = this.opts.req;
     return method as never;
   }
 
   private _url: URL | undefined;
-  get url(): URL {
+  private get url(): URL {
     if (this._url) {
       return this._url;
     }
@@ -190,11 +190,11 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     return url;
   }
 
-  get path(): string {
+  private get path(): string {
     return normalizePath(this.url.pathname);
   }
 
-  get query(): Record<string, string> {
+  private get query(): Record<string, string> {
     const res: Record<string, string> = {};
     this.url.searchParams.forEach((value, key) => {
       if (typeof res[key] === 'undefined') {
@@ -204,16 +204,16 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     return res;
   }
 
-  async text(): Promise<string> {
+  private async text(): Promise<string> {
     return await this.opts.req.text();
   }
 
-  async requestBody(): Promise<Record<string, unknown> | undefined> {
+  private async requestBody(): Promise<Record<string, unknown> | undefined> {
     const { req } = this.opts;
     try {
       if (req.headers.get('content-type')?.includes('application/json')) {
         // use JSON.parse instead of req.json() because req.json() does not throw on invalid JSON
-        return JSON.parse(await this.opts.req.text());
+        return JSON.parse(await this.text());
       }
 
       if (req.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) {
@@ -229,7 +229,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     }
   }
 
-  async urlEncodedBody(this: { text: () => Promise<string> }) {
+  private async urlEncodedBody() {
     const params = new URLSearchParams(await this.text());
     const res: Record<string, string | string[]> = {};
     params.forEach((value, key) => {
