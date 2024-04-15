@@ -1,4 +1,5 @@
 import { AnyProcedure, TRPCError } from '@trpc/server';
+import { getErrorShape } from '@trpc/server/shared';
 import { FetchHandlerRequestOptions } from '@trpc/server/src/adapters/fetch/fetchRequestHandler';
 import { inferRouterContext } from '@trpc/server/src/core/types';
 import { ZodError, z } from 'zod';
@@ -107,7 +108,9 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
       data: [output as never],
       errors: [error],
     });
-    const errorShape = router.getErrorShape({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const errorShape: { message?: string } | undefined = getErrorShape({
+      config: router._def._config,
       error,
       type: procedure?.type ?? 'unknown',
       path: procedure?.path,
@@ -139,13 +142,14 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     const { router } = this.opts;
     const caller = router.createCaller(ctx);
     const segments = path.split('.');
+    // eslint-disable-next-line
     return segments.reduce((acc, curr) => acc[curr], caller as any) as AnyProcedure;
   }
 
   private async input(
     procedure: OpenApiProcedure,
     pathInput: Record<string, string>,
-  ): Promise<Record<string, any> | undefined> {
+  ): Promise<Record<string, unknown> | undefined> {
     const schema = this.schema(procedure);
     const acceptBody = acceptsRequestBody(this.method);
     if (instanceofZodTypeLikeVoid(schema)) {
@@ -213,6 +217,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     try {
       if (req.headers.get('content-type')?.includes('application/json')) {
         // use JSON.parse instead of req.json() because req.json() does not throw on invalid JSON
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return JSON.parse(await this.text());
       }
 
