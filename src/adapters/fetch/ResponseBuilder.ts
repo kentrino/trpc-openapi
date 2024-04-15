@@ -21,7 +21,7 @@ import { ProcedureCache } from '../node-http/procedures';
 export type ResponseBuilderOptions<TRouter extends OpenApiRouter> = Pick<
   FetchHandlerRequestOptions<TRouter>,
   'router' | 'createContext' | 'responseMeta' | 'onError'
-> & { req: Request; procedureCache: ProcedureCache };
+> & { req: Request; procedureCache: ProcedureCache; endpoint: `/${string}` };
 
 export class ResponseBuilder<TRouter extends OpenApiRouter> {
   private errorInfo: {
@@ -188,7 +188,7 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
     if (this._url) {
       return this._url;
     }
-    const { url: reqUrl } = this.opts.req;
+    const reqUrl = new URL(this.opts.req.url.replace(this.opts.endpoint, '')).toString();
     const url = new URL(reqUrl.startsWith('/') ? `http://127.0.0.1${reqUrl}` : reqUrl);
     this._url = url;
     return url;
