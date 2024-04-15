@@ -26,6 +26,7 @@
     "examples/with-nuxtjs"
   ],
   "scripts": {
+    "lint": "eslint --ext .ts .",
     "test": "tsc --noEmit && jest --verbose",
     "build": "rimraf dist && tsc -p tsconfig.build.json"
   },
