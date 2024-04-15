@@ -18,6 +18,7 @@ export function createOpenApiFetchHandler<TRouter extends OpenApiRouter>(
   const procedureCache = createProcedureCache(opts.router);
   return async function handle(req: Request): Promise<Response> {
     const builder = new ResponseBuilder<TRouter>({
+      endpoint: opts.endpoint,
       req: req,
       router: opts.router,
       createContext: opts.createContext,
