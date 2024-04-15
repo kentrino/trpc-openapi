@@ -1,6 +1,6 @@
 {
   "name": "@kentrino/trpc-openapi",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "tRPC OpenAPI",
   "author": "Kento Haneda <kento@hane.dad>",
   "private": false,
