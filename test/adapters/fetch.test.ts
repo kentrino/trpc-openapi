@@ -47,6 +47,7 @@ const createFetchHandlerCaller = <TRouter extends OpenApiRouter>(
     responseMeta: handlerOpts.responseMeta ?? responseMetaMock,
     onError: handlerOpts.onError ?? onErrorMock,
     req: handlerOpts.req,
+    endpoint: handlerOpts.endpoint,
   } as any);
   return openApiHttpHandler;
 };
@@ -541,6 +542,30 @@ describe('fetch adapter', () => {
     });
     expect(createContextMock).toHaveBeenCalledTimes(1);
     expect(onErrorMock).toHaveBeenCalledTimes(0);
+  });
+
+  test('with endpoint', async () => {
+    const appRouter = t.router({
+      echo: t.procedure
+        .meta({ openapi: { method: 'GET', path: '/echo' } })
+        .input(z.object({ payload: z.string() }))
+        .output(z.object({ payload: z.string(), context: z.undefined() }))
+        .query(({ input, ctx }) => ({ payload: input.payload, context: ctx })),
+    });
+    const req = new Request('https://localhost:3000/test-endpoint/echo?payload=jlalmes', {
+      method: 'GET',
+    });
+    const res = await createFetchHandlerCaller({
+      router: appRouter,
+      endpoint: '/test-endpoint',
+      req,
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      payload: 'jlalmes',
+      context: undefined,
+    });
   });
 
   test('with skipped transformer', async () => {
