@@ -1,6 +1,6 @@
 {
   "name": "@kentrino/trpc-openapi",
-  "version": "1.3.0",
+  "version": "1.3.2",
   "description": "tRPC OpenAPI",
   "author": "Kento Haneda <kento@hane.dad>",
   "private": false,
@@ -26,6 +26,8 @@
     "examples/with-nuxtjs"
   ],
   "scripts": {
+    "format": "prettier --write './**/*.ts'",
+    "lint": "eslint --ext .ts .",
     "test": "tsc --noEmit && jest --verbose",
     "build": "rimraf dist && tsc -p tsconfig.build.json"
   },

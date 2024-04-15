@@ -7,7 +7,7 @@ export const instanceofZodType = (type: any): type is z.ZodTypeAny => {
 export const instanceofZodTypeKind = <Z extends z.ZodFirstPartyTypeKind>(
   type: z.ZodTypeAny,
   zodTypeKind: Z,
-): type is InstanceType<typeof z[Z]> => {
+): type is InstanceType<(typeof z)[Z]> => {
   return type?._def?.typeName === zodTypeKind;
 };
 

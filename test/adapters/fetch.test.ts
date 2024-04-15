@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { initTRPC, TRPCError } from '@trpc/server';
+import { TRPCError, initTRPC } from '@trpc/server';
 import fetch from 'node-fetch';
 import superjson from 'superjson';
 import { z } from 'zod';
 
 import {
-  createOpenApiFetchHandler,
   CreateOpenApiFetchHandlerOptions,
   OpenApiErrorResponse,
   OpenApiMeta,
   OpenApiRouter,
+  createOpenApiFetchHandler,
 } from '../../src';
 import * as zodUtils from '../../src/utils/zod';
 
@@ -26,15 +26,20 @@ const clearMocks = () => {
   onErrorMock.mockClear();
 };
 
+type CreateOpenApiFetchHandlerCompatOptions<TRouter extends OpenApiRouter> =
+  CreateOpenApiFetchHandlerOptions<TRouter> & {
+    req: Request;
+  };
+
 function createOpenApiFetchHandlerCompat<TRouter extends OpenApiRouter>(
-  opts: CreateOpenApiFetchHandlerOptions<TRouter>,
+  opts: CreateOpenApiFetchHandlerCompatOptions<TRouter>,
 ): Promise<Response> {
   const handler = createOpenApiFetchHandler(opts);
   return handler(opts.req);
 }
 
 const createFetchHandlerCaller = <TRouter extends OpenApiRouter>(
-  handlerOpts: CreateOpenApiFetchHandlerOptions<TRouter>,
+  handlerOpts: CreateOpenApiFetchHandlerCompatOptions<TRouter>,
 ) => {
   const openApiHttpHandler = createOpenApiFetchHandlerCompat<TRouter>({
     router: handlerOpts.router,
@@ -42,6 +47,7 @@ const createFetchHandlerCaller = <TRouter extends OpenApiRouter>(
     responseMeta: handlerOpts.responseMeta ?? responseMetaMock,
     onError: handlerOpts.onError ?? onErrorMock,
     req: handlerOpts.req,
+    endpoint: handlerOpts.endpoint,
   } as any);
   return openApiHttpHandler;
 };
@@ -536,6 +542,30 @@ describe('fetch adapter', () => {
     });
     expect(createContextMock).toHaveBeenCalledTimes(1);
     expect(onErrorMock).toHaveBeenCalledTimes(0);
+  });
+
+  test('with endpoint', async () => {
+    const appRouter = t.router({
+      echo: t.procedure
+        .meta({ openapi: { method: 'GET', path: '/echo' } })
+        .input(z.object({ payload: z.string() }))
+        .output(z.object({ payload: z.string(), context: z.undefined() }))
+        .query(({ input, ctx }) => ({ payload: input.payload, context: ctx })),
+    });
+    const req = new Request('https://localhost:3000/test-endpoint/echo?payload=jlalmes', {
+      method: 'GET',
+    });
+    const res = await createFetchHandlerCaller({
+      router: appRouter,
+      endpoint: '/test-endpoint',
+      req,
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      payload: 'jlalmes',
+      context: undefined,
+    });
   });
 
   test('with skipped transformer', async () => {
