@@ -2807,26 +2807,26 @@ describe('generator', () => {
             method: 'GET',
             path: '/query-example/{name}',
             responseHeaders: {
-              "X-RateLimit-Limit": {
-                description: "Request limit per hour.",
+              'X-RateLimit-Limit': {
+                description: 'Request limit per hour.',
                 schema: {
-                  type: "integer"
-                }
+                  type: 'integer',
+                },
               },
-              "X-RateLimit-Remaining": {
-                description: "The number of requests left for the time window.",
+              'X-RateLimit-Remaining': {
+                description: 'The number of requests left for the time window.',
                 schema: {
-                  type: "integer"
-                }
-              }
-            }
+                  type: 'integer',
+                },
+              },
+            },
           },
         })
         .input(z.object({ name: z.string(), greeting: z.string() }))
         .output(z.object({ output: z.string() }))
         .query(({ input }) => ({
           output: `${input.greeting} ${input.name}`,
-        }))
+        })),
     });
 
     const openApiDocument = generateOpenApiDocument(appRouter, defaultDocOpts);
