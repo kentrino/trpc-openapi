@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { initTRPC, TRPCError } from '@trpc/server';
+import { TRPCError, initTRPC } from '@trpc/server';
 import fetch from 'node-fetch';
 import superjson from 'superjson';
 import { z } from 'zod';
 
 import {
-  createOpenApiFetchHandler,
   CreateOpenApiFetchHandlerOptions,
   OpenApiErrorResponse,
   OpenApiMeta,
   OpenApiRouter,
+  createOpenApiFetchHandler,
 } from '../../src';
 import * as zodUtils from '../../src/utils/zod';
 
@@ -26,15 +26,20 @@ const clearMocks = () => {
   onErrorMock.mockClear();
 };
 
+type CreateOpenApiFetchHandlerCompatOptions<TRouter extends OpenApiRouter> =
+  CreateOpenApiFetchHandlerOptions<TRouter> & {
+    req: Request;
+  };
+
 function createOpenApiFetchHandlerCompat<TRouter extends OpenApiRouter>(
-  opts: CreateOpenApiFetchHandlerOptions<TRouter>,
+  opts: CreateOpenApiFetchHandlerCompatOptions<TRouter>,
 ): Promise<Response> {
   const handler = createOpenApiFetchHandler(opts);
   return handler(opts.req);
 }
 
 const createFetchHandlerCaller = <TRouter extends OpenApiRouter>(
-  handlerOpts: CreateOpenApiFetchHandlerOptions<TRouter>,
+  handlerOpts: CreateOpenApiFetchHandlerCompatOptions<TRouter>,
 ) => {
   const openApiHttpHandler = createOpenApiFetchHandlerCompat<TRouter>({
     router: handlerOpts.router,
