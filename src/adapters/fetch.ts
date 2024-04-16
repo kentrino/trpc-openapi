@@ -4,7 +4,7 @@ import {
   FetchHandlerOptions,
 } from '@trpc/server/adapters/fetch';
 import { AnyRouter, inferRouterContext } from '@trpc/server/src/core';
-import { Env, Context as HonoContext } from 'hono';
+import { Env, Context as HonoContext, Hono } from 'hono';
 
 import { OpenApiRouter } from '../types';
 import { ResponseBuilder } from './fetch/ResponseBuilder';
@@ -30,7 +30,7 @@ export function createOpenApiFetchHandler<TRouter extends OpenApiRouter, HonoEnv
   opts: CreateOpenApiFetchHandlerOptions<TRouter>,
 ): (req: Request, ctx: HonoContext<HonoEnv>) => Promise<Response> {
   const procedureCache = createProcedureCache(opts.router);
-  return async function handle(req: Request, ctx: HonoContext): Promise<Response> {
+  return async function handle(req: Request, ctx: HonoContext<HonoEnv>): Promise<Response> {
     const createContext: FetchCreateContextFn<TRouter> = (contextFnOpts) => {
       // FIXME:
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
