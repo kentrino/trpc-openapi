@@ -4,7 +4,7 @@ import {
   FetchHandlerOptions,
 } from '@trpc/server/adapters/fetch';
 import { AnyRouter, inferRouterContext } from '@trpc/server/src/core';
-import { Env, Context as HonoContext, Hono } from 'hono';
+import { Env, Context as HonoContext } from 'hono';
 
 import { OpenApiRouter } from '../types';
 import { ResponseBuilder } from './fetch/ResponseBuilder';
