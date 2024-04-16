@@ -35,7 +35,7 @@ function createOpenApiFetchHandlerCompat<TRouter extends OpenApiRouter>(
   opts: CreateOpenApiFetchHandlerCompatOptions<TRouter>,
 ): Promise<Response> {
   const handler = createOpenApiFetchHandler(opts);
-  return handler(opts.req);
+  return handler(opts.req, {} as never);
 }
 
 const createFetchHandlerCaller = <TRouter extends OpenApiRouter>(
