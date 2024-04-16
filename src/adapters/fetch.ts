@@ -10,24 +10,24 @@ import { OpenApiRouter } from '../types';
 import { ResponseBuilder } from './fetch/ResponseBuilder';
 import { createProcedureCache } from './node-http/procedures';
 
-export type CreateOpenApiFetchHandlerOptions<TRouter extends OpenApiRouter> = {
+export type CreateOpenApiFetchHandlerOptions<TRouter extends OpenApiRouter, HonoEnv extends Env> = {
   endpoint: `/${string}`;
   router: FetchHandlerOptions<TRouter>['router'];
-  createContext?: HonoFetchCreateContextFn<TRouter>;
+  createContext?: HonoFetchCreateContextFn<TRouter, HonoEnv>;
   responseMeta?: FetchHandlerOptions<TRouter>['responseMeta'];
   onError?: FetchHandlerOptions<TRouter>['onError'];
 };
 
-type HonoCreateContextFnOptions = FetchCreateContextFnOptions & {
-  ctx: HonoContext;
+export type HonoCreateContextFnOptions<HonoEnv extends Env> = FetchCreateContextFnOptions & {
+  ctx: HonoContext<HonoEnv>;
 };
 
-export type HonoFetchCreateContextFn<TRouter extends AnyRouter> = (
-  opts: HonoCreateContextFnOptions,
+export type HonoFetchCreateContextFn<TRouter extends AnyRouter, HonoEnv extends Env> = (
+  opts: HonoCreateContextFnOptions<HonoEnv>,
 ) => inferRouterContext<TRouter> | Promise<inferRouterContext<TRouter>>;
 
 export function createOpenApiFetchHandler<TRouter extends OpenApiRouter, HonoEnv extends Env>(
-  opts: CreateOpenApiFetchHandlerOptions<TRouter>,
+  opts: CreateOpenApiFetchHandlerOptions<TRouter, HonoEnv>,
 ): (req: Request, ctx: HonoContext<HonoEnv>) => Promise<Response> {
   const procedureCache = createProcedureCache(opts.router);
   return async function handle(req: Request, ctx: HonoContext<HonoEnv>): Promise<Response> {
