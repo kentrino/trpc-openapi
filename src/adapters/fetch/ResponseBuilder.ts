@@ -50,6 +50,8 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
           headers: undefined,
         });
       }
+      const ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: headers });
+      this.errorInfo.ctx = ctx;
       if (!procedure || !pathInput) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -57,7 +59,6 @@ export class ResponseBuilder<TRouter extends OpenApiRouter> {
         });
       }
       const input = await this.input(procedure.procedure, pathInput);
-      const ctx = await this.opts.createContext?.({ req: this.opts.req, resHeaders: headers });
       const fn = this.procedureFnFor(procedure.path, ctx);
       // input can be undefined
       const output = await fn(input as never);
