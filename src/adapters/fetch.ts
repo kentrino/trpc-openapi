@@ -31,9 +31,9 @@ export function createOpenApiFetchHandler<TRouter extends OpenApiRouter, HonoEnv
 ): (req: Request, ctx: HonoContext<HonoEnv>) => Promise<Response> {
   const procedureCache = createProcedureCache(opts.router);
   return async function handle(req: Request, ctx: HonoContext<HonoEnv>): Promise<Response> {
-    const createContext: FetchCreateContextFn<TRouter> = (contextFnOpts) => {
-      // FIXME:
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    const createContext: FetchCreateContextFn<TRouter> = async (
+      contextFnOpts,
+    ): Promise<inferRouterContext<TRouter> | undefined> => {
       return opts.createContext?.({
         req: contextFnOpts.req,
         resHeaders: contextFnOpts.resHeaders,
