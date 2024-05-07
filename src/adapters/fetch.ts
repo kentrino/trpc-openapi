@@ -22,7 +22,7 @@ export type HonoCreateContextFnOptions<HonoEnv extends Env> = FetchCreateContext
   ctx: HonoContext<HonoEnv>;
 };
 
-export type HonoFetchCreateContextFn<TRouter extends AnyRouter, HonoEnv extends Env> = (
+export type HonoFetchCreateContextFn<TRouter extends OpenApiRouter, HonoEnv extends Env> = (
   opts: HonoCreateContextFnOptions<HonoEnv>,
 ) => inferRouterContext<TRouter> | Promise<inferRouterContext<TRouter>>;
 
